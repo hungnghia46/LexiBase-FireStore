@@ -1,17 +1,15 @@
 ﻿using Google.Cloud.Firestore;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Repository.ViewModel;
-using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
-namespace WebApplication1.Controllers
+namespace A_LECXIAPP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class LecxiController : ControllerBase
+    public class AccountController : Controller
     {
         FirestoreDb db;
-        public LecxiController()
+        public AccountController()
         {
             string path = AppDomain.CurrentDomain.BaseDirectory + @"lexibase.json";
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
@@ -39,7 +37,7 @@ namespace WebApplication1.Controllers
             else { return NotFound("Account is Empty"); }
         }
 
-        [HttpGet("Get acc by Email")]
+        [HttpGet("Get_Acc_By_Email")]
         public async Task<IActionResult> GetByEmail(String email)
         {
             CollectionReference collectionRef = db.Collection("accounts");
@@ -56,7 +54,7 @@ namespace WebApplication1.Controllers
                 return NotFound();
             }
         }
-        [HttpPost("Add new Account")]
+        [HttpPost("Add_New_Account")]
         public async Task<IActionResult> addAccount(Account acc)
         {
             try
@@ -78,7 +76,7 @@ namespace WebApplication1.Controllers
                 return BadRequest("Error adding the account:" + ex.Message);
             }
         }
-        [HttpDelete("Delete by id")]
+        [HttpDelete("Delete_By_Email/{email}")]
         public async Task<IActionResult> Delete(String email)
         {
             CollectionReference collectionRef = db.Collection("accounts");
@@ -95,7 +93,7 @@ namespace WebApplication1.Controllers
                 return NotFound();
             }
         }
-        [HttpPut("Update by Email{Email}")]
+        [HttpPut("Update_By_Email{Email}")]
         public async Task<IActionResult> UpdateById(String Email, AccountView accountView)
         {
 
@@ -121,37 +119,6 @@ namespace WebApplication1.Controllers
             //Account account = document.ConvertTo<Account>();
 
             return Ok(account);
-        }
-        [HttpPost]
-        public async Task<IActionResult> insertWord(String wordName, string definition)
-        {
-            CollectionReference collectionRef = db.Collection("Dictionary");
-            DocumentReference document = collectionRef.Document();
-            Word newWord = new Word
-            {
-                WordName = wordName,
-                Definition = definition
-            };
-            await document.SetAsync(newWord);
-            return Ok(newWord);
-        }
-        [HttpGet]
-        public async Task<IActionResult> searchWord(String wordname)
-        {
-            Query query = db.Collection("Dictionary").WhereEqualTo("word", wordname);
-            QuerySnapshot snapshot = await query.GetSnapshotAsync();
-            List<Word> words = new List<Word>();
-
-            foreach (DocumentSnapshot document in snapshot.Documents)
-            {
-                Word word = document.ConvertTo<Word>();
-                words.Add(word);
-            }
-            if (words.Count > 0)
-            {
-                return Ok(words);
-            }
-            return BadRequest("Not found");
         }
     }
 }
