@@ -1,10 +1,12 @@
-﻿namespace WebApplication1
+﻿using Google.Cloud.Firestore;
+
+[FirestoreData]
+public class Account
 {
-    public class Account
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-    }
+    [FirestoreProperty("Name")]
+    public string Name { get; set; }
+    [FirestoreProperty("Email")]
+    public string Email { get; set; }
+    [FirestoreProperty("Password")]
+    public string Password { get; set; }
 }

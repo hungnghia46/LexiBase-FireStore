@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Repository.ViewModel;
+using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace WebApplication1.Controllers
 {
@@ -16,44 +17,28 @@ namespace WebApplication1.Controllers
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", path);
             db = FirestoreDb.Create("lexibase-bf6c0");
         }
-        [HttpGet("Get All Account")]
+        [HttpGet("Get_All_Account")]
         public async Task<IActionResult> Get()
         {
             CollectionReference collectionRef = db.Collection("accounts");
             QuerySnapshot snapshots = await collectionRef.GetSnapshotAsync();
 
-            List<Dictionary<string, object>> accountsData = new List<Dictionary<string, object>>();
-
+            List<Account> accounts = new List<Account>();
             foreach (DocumentSnapshot doc in snapshots.Documents)
             {
                 if (doc.Exists)
                 {
-                    Dictionary<String, object> data = doc.ToDictionary();
-                    accountsData.Add(data);
+                    Account account = doc.ConvertTo<Account>();
+                    accounts.Add(account);
                 }
             }
-            if (accountsData.Count > 0)
+            if (accounts.Count > 0)
             {
-                return Ok(accountsData);
+                return Ok(accounts);
             }
             else { return NotFound("Account is Empty"); }
         }
-        [HttpGet("Get acc by id")]
-        public async Task<IActionResult> GetAll(Guid id)
-        {
-            CollectionReference collectionRef = db.Collection("accounts");
-            DocumentReference DOC = collectionRef.Document(id.ToString());
-            DocumentSnapshot snapshot = await DOC.GetSnapshotAsync();
-            if (snapshot.Exists)
-            {
-                Dictionary<String, object> data = snapshot.ToDictionary();
-                return Ok(data);
-            }
-            else
-            {
-                return NotFound("Account not found!"); // Document with the specified ID not found
-            }
-        }
+
         [HttpGet("Get acc by Email")]
         public async Task<IActionResult> GetByEmail(String email)
         {
@@ -62,9 +47,9 @@ namespace WebApplication1.Controllers
             QuerySnapshot snapshots = await query.GetSnapshotAsync();
             if (snapshots.Count > 0)
             {
-                DocumentSnapshot doc = snapshots.First();
-                Dictionary<string, object> data = doc.ToDictionary();
-                return Ok(data);
+                DocumentSnapshot doc = snapshots.Documents.First();
+                Account acc = doc.ConvertTo<Account>();
+                return Ok(acc);
             }
             else
             {
@@ -72,20 +57,26 @@ namespace WebApplication1.Controllers
             }
         }
         [HttpPost("Add new Account")]
-        public async Task<IActionResult> test(AccountView accView)
+        public async Task<IActionResult> addAccount(Account acc)
         {
-            Account acc = new Account();
-            CollectionReference collectionRef = db.Collection("accounts");
-            acc.Id = Guid.NewGuid();
-            DocumentReference DOC = collectionRef.Document(acc.Id.ToString());
-            Dictionary<String, object> data = new Dictionary<String, object>()
+            try
             {
-                { "Name", accView.Name },
-                { "Email", accView.Email },
-                { "Password", accView.Password }
-            };
-            await DOC.SetAsync(data);
-            return Ok(data);
+                CollectionReference collectionRef = db.Collection("accounts");
+                DocumentReference document = collectionRef.Document();
+                Account account = new Account()
+                {
+                    Name = acc.Name,
+                    Email = acc.Email + "@gmail.com",
+                    Password = acc.Password,
+                };
+                await document.SetAsync(account);
+
+                return Ok("Add sucessfully");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Error adding the account:" + ex.Message);
+            }
         }
         [HttpDelete("Delete by id")]
         public async Task<IActionResult> Delete(String email)
@@ -104,30 +95,63 @@ namespace WebApplication1.Controllers
                 return NotFound();
             }
         }
-        [HttpPut("Update by id")]
-        public async Task<IActionResult> UpdateById(Guid id, AccountView updatedAccountData)
+        [HttpPut("Update by Email{Email}")]
+        public async Task<IActionResult> UpdateById(String Email, AccountView accountView)
         {
-            CollectionReference collectionRef = db.Collection("accounts");
-            DocumentReference docRef = collectionRef.Document(id.ToString());
 
-            DocumentSnapshot snapshot = await docRef.GetSnapshotAsync();
-            if (snapshot.Exists)
-            {
-                Dictionary<string, object> data = new Dictionary<string, object>()
-        {
-            { "Name", updatedAccountData.Name },
-            { "Email", updatedAccountData.Email },
-            { "Password", updatedAccountData.Password }
-        };
+            Query query = db.Collection("accounts").WhereEqualTo("Email", Email);
+            QuerySnapshot snapshots = await query.GetSnapshotAsync();
+            DocumentSnapshot document = snapshots.Documents.First();
 
-                await docRef.SetAsync(data);
-                return Ok("Account updated successfully!");
-            }
-            else
+            DocumentReference documentRef = document.Reference;
+            Account account = document.ConvertTo<Account>();
+
+            if (accountView.Name != null || accountView.Password != null)
             {
-                return NotFound("Account not found!"); // Document with the specified ID not found
+                // Only update if it has changed
+                account.Name = accountView.Name;
+                account.Password = accountView.Password;
+
             }
+
+
+            await documentRef.SetAsync(account);
+
+
+            //Account account = document.ConvertTo<Account>();
+
+            return Ok(account);
         }
+        [HttpPost]
+        public async Task<IActionResult> insertWord(String wordName, string definition)
+        {
+            CollectionReference collectionRef = db.Collection("Dictionary");
+            DocumentReference document = collectionRef.Document();
+            Word newWord = new Word
+            {
+                WordName = wordName,
+                Definition = definition
+            };
+            await document.SetAsync(newWord);
+            return Ok(newWord);
+        }
+        [HttpGet]
+        public async Task<IActionResult> searchWord(String wordname)
+        {
+            Query query = db.Collection("Dictionary").WhereEqualTo("word", wordname);
+            QuerySnapshot snapshot = await query.GetSnapshotAsync();
+            List<Word> words = new List<Word>();
 
+            foreach (DocumentSnapshot document in snapshot.Documents)
+            {
+                Word word = document.ConvertTo<Word>();
+                words.Add(word);
+            }
+            if (words.Count > 0)
+            {
+                return Ok(words);
+            }
+            return BadRequest("Not found");
+        }
     }
 }
